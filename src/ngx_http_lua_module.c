@@ -1044,8 +1044,7 @@ ngx_http_lua_create_loc_conf(ngx_conf_t *cf)
      *      conf->content_src_key = NULL
      *      conf->content_handler = NULL;
      *
-     *      conf->log_src = {{ 0, NULL }, NULL, NULL, NULL};
-     *      conf->log_src_key = NULL
+     *      conf->log_handlers = NULL;
      *      conf->log_handler = NULL;
      *
      *      conf->header_filter_src = {{ 0, NULL }, NULL, NULL, NULL};
@@ -1111,11 +1110,9 @@ ngx_http_lua_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         conf->content_chunkname = prev->content_chunkname;
     }
 
-    if (conf->log_src.value.len == 0) {
-        conf->log_src = prev->log_src;
+    if (conf->log_handlers == NULL) {
+        conf->log_handlers = prev->log_handlers;
         conf->log_handler = prev->log_handler;
-        conf->log_src_key = prev->log_src_key;
-        conf->log_chunkname = prev->log_chunkname;
     }
 
     if (conf->header_filter_src.value.len == 0) {

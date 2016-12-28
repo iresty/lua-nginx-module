@@ -137,24 +137,58 @@ ngx_http_lua_log_handler(ngx_http_request_t *r)
 
 
 ngx_int_t
-ngx_http_lua_log_handler_inline(ngx_http_request_t *r)
+ngx_http_lua_run_log_handlers(ngx_http_request_t *r)
+{
+    ngx_int_t                        rc;
+    ngx_http_lua_loc_conf_t         *llcf;
+    ngx_uint_t                       i;
+    ngx_http_lua_phase_handler_t    *ph;
+    ngx_array_t                     *handlers;
+
+    dd("run log lua handlers");
+
+    rc = NGX_OK;
+
+    llcf = ngx_http_get_module_loc_conf(r, ngx_http_lua_module);
+
+    handlers = llcf->log_handlers;
+    ph = handlers->elts;
+
+    for (i = 0; i < handlers->nelts; i++) {
+
+        if (ph[i].is_inline) {
+            rc = ngx_http_lua_log_handler_inline(r, &ph[i]);
+
+        } else {
+            rc = ngx_http_lua_log_handler_file(r, &ph[i]);
+        }
+
+        if (rc != NGX_OK) {
+            return rc;
+        }
+    }
+
+    return rc;
+}
+
+
+ngx_int_t
+ngx_http_lua_log_handler_inline(ngx_http_request_t *r,
+    ngx_http_lua_phase_handler_t *ph)
 {
     lua_State                   *L;
     ngx_int_t                    rc;
-    ngx_http_lua_loc_conf_t     *llcf;
 
     dd("log by lua inline");
-
-    llcf = ngx_http_get_module_loc_conf(r, ngx_http_lua_module);
 
     L = ngx_http_lua_get_lua_vm(r, NULL);
 
     /*  load Lua inline script (w/ cache) sp = 1 */
     rc = ngx_http_lua_cache_loadbuffer(r->connection->log, L,
-                                       llcf->log_src.value.data,
-                                       llcf->log_src.value.len,
-                                       llcf->log_src_key,
-                                       (const char *) llcf->log_chunkname);
+                                       ph->src.value.data,
+                                       ph->src.value.len,
+                                       ph->src_key,
+                                       (const char *) ph->chunkname);
     if (rc != NGX_OK) {
         return NGX_ERROR;
     }
@@ -164,17 +198,15 @@ ngx_http_lua_log_handler_inline(ngx_http_request_t *r)
 
 
 ngx_int_t
-ngx_http_lua_log_handler_file(ngx_http_request_t *r)
+ngx_http_lua_log_handler_file(ngx_http_request_t *r,
+    ngx_http_lua_phase_handler_t *ph)
 {
     lua_State                       *L;
     ngx_int_t                        rc;
     u_char                          *script_path;
-    ngx_http_lua_loc_conf_t         *llcf;
     ngx_str_t                        eval_src;
 
-    llcf = ngx_http_get_module_loc_conf(r, ngx_http_lua_module);
-
-    if (ngx_http_complex_value(r, &llcf->log_src, &eval_src) != NGX_OK) {
+    if (ngx_http_complex_value(r, &ph->src, &eval_src) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -189,7 +221,7 @@ ngx_http_lua_log_handler_file(ngx_http_request_t *r)
 
     /*  load Lua script file (w/ cache)        sp = 1 */
     rc = ngx_http_lua_cache_loadfile(r->connection->log, L, script_path,
-                                     llcf->log_src_key);
+                                     ph->src_key);
     if (rc != NGX_OK) {
         return NGX_ERROR;
     }
