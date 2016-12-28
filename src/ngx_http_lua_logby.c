@@ -163,6 +163,7 @@ ngx_http_lua_run_log_handlers(ngx_http_request_t *r)
             rc = ngx_http_lua_log_handler_file(r, &ph[i]);
         }
 
+        /* --FIXME-- how to do abort if we need*/
         if (rc != NGX_OK) {
             return rc;
         }
