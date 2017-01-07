@@ -1126,6 +1126,9 @@ ngx_http_lua_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     } else if (lmcf->access_by_lua_call_prev && prev->access_handlers != NULL) {
         handlers = ngx_array_create(cf->pool, conf->access_handlers->nelts + prev->access_handlers->nelts,
                                     sizeof(ngx_http_lua_phase_handler_t));
+        if (handlers == NULL) {
+            return NGX_CONF_ERROR;
+        }
         ph = ngx_array_push_n(handlers, conf->access_handlers->nelts + prev->access_handlers->nelts);
         if (ph == NULL) {
             return NGX_CONF_ERROR;
