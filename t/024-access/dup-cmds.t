@@ -421,3 +421,58 @@ qr/access \d at \w+/
 --- grep_error_log_out
 access 1 at location
 access 2 at location
+
+
+
+=== TEST 19: multiple directives at different phase: http(Y) + server(Y) + location(Y)
+--- http_config
+    access_by_lua_call_prev  on;
+    access_by_lua_block { ngx.log(ngx.ERR, "access 1 at http") }
+    access_by_lua_block { ngx.log(ngx.ERR, "access 2 at http") }
+--- config
+    access_by_lua_block { ngx.log(ngx.ERR, "access 1 at server") }
+    access_by_lua_block { ngx.log(ngx.ERR, "access 2 at server") }
+
+    location = /t {
+        access_by_lua_block { ngx.log(ngx.ERR, "access 1 at location") }
+        access_by_lua_block { ngx.log(ngx.ERR, "access 2 at location") }
+        echo "Hello /t";
+    }
+--- request
+GET /t
+--- response_body
+Hello /t
+--- grep_error_log eval
+qr/access \d at \w+/
+--- grep_error_log_out
+access 1 at http
+access 2 at http
+access 1 at server
+access 2 at server
+access 1 at location
+access 2 at location
+
+
+
+=== TEST 20: multiple directives at different phase: http(Y) + server(Y) + location(Y)
+--- http_config
+    access_by_lua_call_prev  on;
+    access_by_lua_block { ngx.log(ngx.ERR, "access 1 at http") }
+    access_by_lua_block { ngx.log(ngx.ERR, "access 2 at http") }
+--- config
+    location = /t {
+        access_by_lua_block { ngx.log(ngx.ERR, "access 1 at location") }
+        access_by_lua_block { ngx.log(ngx.ERR, "access 2 at location") }
+        echo "Hello /t";
+    }
+--- request
+GET /t
+--- response_body
+Hello /t
+--- grep_error_log eval
+qr/access \d at \w+/
+--- grep_error_log_out
+access 1 at http
+access 2 at http
+access 1 at location
+access 2 at location
