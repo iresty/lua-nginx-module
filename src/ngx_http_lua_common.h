@@ -184,6 +184,8 @@ struct ngx_http_lua_main_conf_s {
     ngx_flag_t           postponed_to_rewrite_phase_end;
     ngx_flag_t           postponed_to_access_phase_end;
 
+    ngx_flag_t           access_by_lua_call_prev;
+
     ngx_http_lua_main_conf_handler_pt    init_handler;
     ngx_str_t                            init_src;
 

@@ -334,6 +334,13 @@ static ngx_command_t ngx_http_lua_cmds[] = {
       offsetof(ngx_http_lua_main_conf_t, postponed_to_access_phase_end),
       NULL },
 
+    { ngx_string("access_by_lua_call_prev"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_lua_main_conf_t, access_by_lua_call_prev),
+      NULL },
+
     /* content_by_lua_file rel/or/abs/path/to/script */
     { ngx_string("content_by_lua_file"),
       NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF|NGX_CONF_TAKE1,
@@ -842,6 +849,8 @@ ngx_http_lua_create_main_conf(ngx_conf_t *cf)
     lmcf->postponed_to_rewrite_phase_end = NGX_CONF_UNSET;
     lmcf->postponed_to_access_phase_end = NGX_CONF_UNSET;
 
+    lmcf->access_by_lua_call_prev = NGX_CONF_UNSET;
+
 #if (NGX_HTTP_LUA_HAVE_MALLOC_TRIM)
     lmcf->malloc_trim_cycle = NGX_CONF_UNSET_UINT;
 #endif
@@ -887,6 +896,10 @@ ngx_http_lua_init_main_conf(ngx_conf_t *cf, void *conf)
         lmcf->malloc_trim_cycle = 1000;  /* number of reqs */
     }
 #endif
+
+    if (lmcf->access_by_lua_call_prev == NGX_CONF_UNSET) {
+        lmcf->access_by_lua_call_prev = 0;
+    }
 
     lmcf->cycle = cf->cycle;
 
@@ -1092,8 +1105,13 @@ ngx_http_lua_create_loc_conf(ngx_conf_t *cf)
 static char *
 ngx_http_lua_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_http_lua_loc_conf_t *prev = parent;
-    ngx_http_lua_loc_conf_t *conf = child;
+    ngx_http_lua_loc_conf_t      *prev = parent;
+    ngx_http_lua_loc_conf_t      *conf = child;
+    ngx_http_lua_main_conf_t     *lmcf;
+    ngx_http_lua_phase_handler_t *ph;
+    ngx_array_t                  *handlers;
+
+    lmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_lua_module);
 
     if (conf->rewrite_src.value.len == 0) {
         conf->rewrite_src = prev->rewrite_src;
@@ -1105,6 +1123,17 @@ ngx_http_lua_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->access_handlers == NULL) {
         conf->access_handler = prev->access_handler;
         conf->access_handlers = prev->access_handlers;
+    } else if (lmcf->access_by_lua_call_prev && prev->access_handlers != NULL) {
+        handlers = ngx_array_create(cf->pool, conf->access_handlers->nelts + prev->access_handlers->nelts,
+                                    sizeof(ngx_http_lua_phase_handler_t));
+        ph = ngx_array_push_n(handlers, conf->access_handlers->nelts + prev->access_handlers->nelts);
+        if (ph == NULL) {
+            return NGX_CONF_ERROR;
+        }
+        ngx_memcpy(ph, prev->access_handlers->elts, prev->access_handlers->nelts * sizeof(ngx_http_lua_phase_handler_t));
+        ngx_memcpy(ph + prev->access_handlers->nelts, conf->access_handlers->elts, conf->access_handlers->nelts * sizeof(ngx_http_lua_phase_handler_t));
+        ngx_array_destroy(conf->access_handlers);
+        conf->access_handlers = handlers;
     }
 
     if (conf->content_src.value.len == 0) {
